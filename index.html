@@ -1,0 +1,295 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Check Response</title>
+<style>
+body {margin:0;}
+body, table, input {font-family:Arial, sans-serif; font-size:14px;}
+button, input[type=text], select, textarea {box-sizing:border-box; width:100%;}
+input[type=text], textarea {padding:3px 4px;}
+select {padding:2px 1px;}
+
+.tc {text-align:center;}
+
+#lft {border:1px solid #ddd; border-radius:6px; position:fixed; text-align:center; top:5px; left:5px; width:93px;}
+#lft:empty {display:none;}
+
+#mid {margin:0 240px 0 120px;}
+
+table {border-collapse:collapse; margin-top:1px; width:100%;}
+td {cursor:default; padding:5px 2px; position:relative;}
+thead td {border-bottom:1px solid #ccc;}
+.odd td {background:#f5f5f5;}
+td[colspan="9"] {color:#c00; text-align:center;}
+
+/* flag */
+i {background:#5cb85c; display:block; margin:0 auto; width:20px; height:10px;}
+.s301 i {background:#f0ad4e;}
+.s500 i {background:#d9534f;}
+
+.error {color:#d9534f;}
+
+/* content hidden */
+td b:before {content:'<>';}
+td:hover b {color:#5bc0de;}
+td div {background:#fff; border:1px solid #aaa; box-sizing:border-box; display:none; font:12px Consolas; padding:6px 8px; position:absolute; top:100%; right:0; width:600px; max-height:200px; overflow:auto; overflow-x:hidden; z-index:1;}
+td:hover div {display:block;}
+
+#rgt {position:fixed; top:5px; right:5px; width:215px;}
+#rgt div {margin-bottom:5px;}
+
+#interval {margin-right:5px; width:35px;}
+#interval + label {margin-left:5px;}
+
+button {background:#5cb85c; color:#fff;}
+button:after {content:'Start';}
+
+button.stop {background:#D9534F;}
+button.stop:after {content:'Stop';}
+</style>
+</head>
+<body>
+<div id="lft"></div>
+<div id="rgt">
+	<form method="get">
+		<button></button>
+		<div>
+			<input type="text" name="url" value="http://www.uol.com.br/" placeholder="http://"/>
+		</div>
+		<div>
+			<label>User-Agent</label>
+			<select name="User-Agent">
+				<option>Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.114 Safari/537.36</option>
+				<option>Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; WOW64; Trident/6.0)</option>
+				<option>Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0)</option>
+				<option>Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; .NET4.0C; InfoPath.3; .NET4.0E)</option>
+				<option>Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1; WOW64; Trident/4.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; .NET4.0C; InfoPath.3; .NET4.0E)</option>
+			</select>
+		</div>
+		<div>
+			<input type="text" id="interval" value="5"/> segundos
+			<label><input type="checkbox" name="content"/> Conteúdo</label>
+		</div>
+		<div>
+			<label>Keep-Alive</label>
+			<select name="Keep-Alive">
+				<option>300</option>
+				<option></option>
+			</select>
+		</div>
+		<div>
+			<label>Connection</label>
+			<select name="Connection">
+				<option>keep-alive</option>
+				<option></option>
+			</select>
+		</div>
+		<div>
+			<label>Cookie</label>
+			<input type="text" name="Cookie"/>
+		</div>
+		<div>
+			<label>Accept-Encoding</label>
+			<select name="Accept-Encoding">
+				<option></option>
+				<option>gzip,deflate,sdch</option>
+				<option>gzip,deflate</option>
+				<option>gzip</option>
+				<option>deflate</option>
+			</select>
+		</div>
+		<div>
+			<label>Accept-Charset</label>
+			<select name="Accept-Charset">
+				<option>windows-1250,utf-8;q=0.7,*;q=0.7</option>
+				<option></option>
+			</select>
+		</div>
+		<div>
+			<label>Accept-Language</label>
+			<select name="Accept-Language">
+				<option>pt-BR,pt;q=0.8,en-US;q=0.6,en;q=0.4</option>
+				<option></option>
+			</select>
+		</div>
+	</form>
+</div>
+<div id="mid">
+	<table>
+		<thead>
+			<tr>
+				<td></td>
+				<td class="tc">Status</td>
+				<td class="tc">Time</td>
+				<td>Date</td>
+				<td>Content-Type</td>
+				<td>Length</td>
+				<td>Expires</td>
+				<td>Server</td>
+				<td width="20"></td>
+			</tr>
+		</thead>
+		<tbody></tbody>
+	</table>
+</div>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+<script>
+
+var
+	// html elements
+	tbody = $('tbody'),
+	form = $('form'),
+	btn = $('button'),
+	interval = $('#interval'),
+	score = $('#lft'),
+	// form parameters
+	params,
+	// request timer/interval
+	timer,
+	// error patterns (defined by user)
+	errorPattern = {},
+	// response stats
+	requests = 0,
+	serverErrors = 0,
+	customErrors = 0,
+	timeAverage = 0;
+
+// check response
+$('form').submit(function(event) {
+	event.preventDefault();
+	btn.toggleClass('stop');
+	// start
+	if (!timer) {
+		params = $(this).serialize();
+		request();
+		timer = setInterval(request, parseFloat(interval.val()) * 1000);
+	}
+	// stop
+	else {
+		timer = clearInterval(timer);
+	}
+});
+
+// set/unset custom errors
+tbody.on('click', 'td', function(event) {
+	var td = $(this),
+		tds = td.parent().children(),
+		index = tds.index(td),
+		text = td.text();
+	
+	// new pattern
+	if (!td.hasClass('error')) {
+		tbody.find('tr').each(function() {
+			var tds_ = $('td', this);
+			
+			if (tds_.eq(index).text() == text) {
+				// no previous error
+				if (tds_.filter('.error').length == 0) {
+					customErrors++;
+				}
+				
+				tds_.eq(index).addClass('error');
+			}
+		});
+		
+		// saves the error
+		if (index in errorPattern == false)
+			errorPattern[index] = [];
+		
+		errorPattern[index].push(text);
+	}
+	// remove pattern
+	else {
+		var temp = [], i = 0;
+		
+		for (; i < errorPattern[index].length; i++)
+			if (errorPattern[index][i] !== text)
+				temp.push(errorPattern[index][i]);
+		
+		if (temp.length > 0)
+			errorPattern[index] = temp;
+		else
+			delete errorPattern[index];
+		
+		tbody.find('tr').each(function() {
+			var tds = $('td', this), td = tds.eq(index);
+			// no longer error
+			if (td.text() == text) {
+				td.removeClass('error');
+				// no more error
+				if (tds.filter('.error').length == 0)
+					customErrors--;
+			}
+		});
+	}
+	
+	scoreUpdate();
+});
+
+function request() {
+	$.ajax({
+		url: 'get.php',
+		type: 'GET',
+		data: params,
+		success: function(r) {
+			requests++;
+			
+			// full response in console
+			console.log(r);
+			
+			// server error
+			if (status == 500)
+				serverErrors++;
+			
+			timeAverage += r.time;
+			
+			tbody.prepend('\
+				<tr class="s'+ r.status + ' ' + (requests % 2 == 0 ? 'odd' : '') +'">\
+					<td><i></i></td>\
+					<td class="tc">'+ r.status +'</td>\
+					<td class="tc">'+ r.time +'</td>\
+					<td>'+ r.Date +'</td>\
+					<td>'+ r['Content-Type'] +'</td>\
+					<td>'+ (r['Content-Length'] || '-') +'</td>\
+					<td>'+ (r.Expires || '-') +'</td>\
+					<td>'+ (r.Server || '-') +'</td>\
+					<td>'+ (r.content ? '<b></b><div>'+ r.content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') +'</div>' : '') +'</td>\
+				</tr>\
+			');
+			
+			// check custom errors
+			if (!$.isEmptyObject(errorPattern)) {
+				var customError = 0;
+				tbody.children(':first').children().each(function(i) {
+					if (errorPattern[i] && $.inArray(this.innerHTML, errorPattern[i]) != -1) {
+						$(this).addClass('error');
+						customError = 1;
+					}
+				});
+				customErrors += customError;
+			}
+			
+			scoreUpdate();
+		},
+		error: function() {
+			tbody.prepend('<tr><td colspan="9">request error</td></tr>')
+		}
+	});
+}
+
+// updates score
+function scoreUpdate() {
+	score.html('\
+		<h1>'+ requests +'</h1>\
+		<h2 style="color: rgb('+ (255 * (serverErrors + customErrors) / requests).toFixed(0) +', 0, 0)">'+
+			((1 - (serverErrors + customErrors) / requests) * 100).toFixed(0) +'%\
+		</h2>\
+		<h3>fail: '+ serverErrors + '/' + customErrors +'</h3>\
+		<h4>time: '+ (timeAverage / requests).toFixed(0) +'</h4>\
+	');
+}
+
+</script>
+</body>
+</html>
