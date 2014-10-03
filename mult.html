@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Multiple Check Response</title>
+<style>
+html, body {margin:0; padding:0;}
+body {padding-top:26px;}
+div {background:#ccc; border-bottom:1px solid #aaa; position:fixed; top:0; left:0; width:100%;}
+ul {list-style:none; margin:0; padding:0;}
+li {float:left;}
+textarea {resize:none; position:absolute; width:80%;}
+textarea.focus {height:400px;}
+iframe {border:solid #999; border-width:0 0 1px; padding:0 0 3px; width:100%;}
+</style>
+</head>
+<body>
+<div class="bar">
+	<button onclick="instance()">New instance</button>
+	<textarea rows="1" placeholder="Paste URLs" onfocus="this.className='focus'" onblur="this.className=''; readlist()"></textarea>
+</div>
+<script>
+var txt = document.getElementsByTagName('textarea')[0],
+	sty = {border: 0, cellspacing: 0, frameborder: 0},
+	bkp = {},
+	prp;
+
+function instance() {
+	var ifr = document.createElement('iframe');
+	ifr.src = 'index.html';
+	for (prp in sty)
+		ifr.setAttribute(prp, sty[prp]);
+	document.body.appendChild(ifr);
+	return ifr;
+}
+
+function readlist() {
+	var its = txt.value.split(/\s+/), len = its.length, i = 0;
+	for (; i < len; i++) {
+		if (!its[i] || its[i] in bkp)
+			continue;
+		else
+			bkp[its[i]] = true;
+		(function() {
+			var ifr = instance(),
+				url = its[i];
+			ifr.onload = function() {
+				var doc = ifr.contentDocument || ifr.contentWindow.document;
+				doc.getElementsByName('url')[0].value = url;
+				doc.getElementsByTagName('button')[0].click();
+			};
+		})();
+	}
+}
+</script>
+</body>
+</html>
